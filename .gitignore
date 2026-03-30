@@ -1,0 +1,8 @@
+terraform-provider-iproute
+dist/
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfplan
+coverage.out
+crash.log
