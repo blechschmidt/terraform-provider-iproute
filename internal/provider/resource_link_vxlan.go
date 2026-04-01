@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"fmt"
 	"net"
 
 	"github.com/example/terraform-provider-iproute/internal/models"
@@ -14,6 +15,7 @@ func vxlanSchemaBlock() schema.SingleNestedBlock {
 		Attributes: map[string]schema.Attribute{
 			"vni":      schema.Int64Attribute{Optional: true, Description: "VxLAN Network Identifier."},
 			"group":    schema.StringAttribute{Optional: true, Description: "Multicast group address."},
+			"remote":   schema.StringAttribute{Optional: true, Description: "Unicast destination IP address for outgoing packets."},
 			"local":    schema.StringAttribute{Optional: true, Description: "Local IP address."},
 			"dev":      schema.StringAttribute{Optional: true, Description: "Physical device for tunnel endpoints."},
 			"port":     schema.Int64Attribute{Optional: true, Description: "UDP destination port."},
@@ -30,11 +32,17 @@ func buildVxlan(name string, cfg *models.VxlanConfig) (*vnl.Vxlan, error) {
 		LinkAttrs: vnl.LinkAttrs{Name: name},
 	}
 	if cfg != nil {
+		if !cfg.Group.IsNull() && !cfg.Remote.IsNull() {
+			return nil, fmt.Errorf("group and remote are mutually exclusive")
+		}
 		if !cfg.VNI.IsNull() {
 			vxlan.VxlanId = int(cfg.VNI.ValueInt64())
 		}
 		if !cfg.Group.IsNull() {
 			vxlan.Group = net.ParseIP(cfg.Group.ValueString())
+		}
+		if !cfg.Remote.IsNull() {
+			vxlan.Group = net.ParseIP(cfg.Remote.ValueString())
 		}
 		if !cfg.Local.IsNull() {
 			vxlan.SrcAddr = net.ParseIP(cfg.Local.ValueString())

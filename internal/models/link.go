@@ -62,6 +62,7 @@ type VlanConfig struct {
 type VxlanConfig struct {
 	VNI      types.Int64  `tfsdk:"vni"`
 	Group    types.String `tfsdk:"group"`
+	Remote   types.String `tfsdk:"remote"`
 	Local    types.String `tfsdk:"local"`
 	Dev      types.String `tfsdk:"dev"`
 	Port     types.Int64  `tfsdk:"port"`
