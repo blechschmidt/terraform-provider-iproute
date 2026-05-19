@@ -3,17 +3,19 @@
 page_title: "iproute_route Data Source - terraform-provider-iproute"
 subcategory: ""
 description: |-
-  Read routing table entries.
+  Read routing table entries. Returns all netlink attributes for each route. When `get` is set, the data source performs a route lookup for the given destination (equivalent to `ip route get <addr>`).
 ---
 
 # iproute_route (Data Source)
 
-Read routing table entries.
+Read routing table entries. Returns all netlink attributes for each route. When
+`get` is set, the data source performs a route lookup for the given destination
+(equivalent to `ip route get <addr>`).
 
 ## Example Usage
 
 ```terraform
-# Read all IPv4 routes
+# Read all IPv4 routes (with full netlink attributes)
 data "iproute_route" "ipv4" {
   family = "inet"
 }
@@ -28,8 +30,18 @@ data "iproute_route" "custom_table" {
   table = 100
 }
 
-output "routes" {
-  value = data.iproute_route.ipv4.routes
+# Look up the route used to reach a specific destination
+# (equivalent to: ip route get 8.8.8.8)
+data "iproute_route" "to_dns" {
+  get = "8.8.8.8"
+}
+
+output "default_gateway_for_dns" {
+  value = data.iproute_route.to_dns.routes[0].gateway
+}
+
+output "all_destinations" {
+  value = [for r in data.iproute_route.ipv4.routes : r.destination]
 }
 ```
 
@@ -38,10 +50,79 @@ output "routes" {
 
 ### Optional
 
-- `family` (String) Address family (inet, inet6).
-- `table` (Number) Routing table ID.
+- `family` (String) Address family filter (inet, inet6). Ignored when `get` is set; the family is then derived from the address.
+- `get` (String) Resolve the route used to reach the given IP address (like `ip route get`).
+- `table` (Number) Filter by routing table ID. Ignored when `get` is set.
 
 ### Read-Only
 
 - `id` (String) The ID of this resource.
-- `routes` (List of String) List of routes.
+- `routes` (Attributes List) List of routes with full netlink attributes. (see [below for nested schema](#nestedatt--routes))
+
+<a id="nestedatt--routes"></a>
+### Nested Schema for `routes`
+
+Read-Only:
+
+- `advmss` (Number) Advertised MSS.
+- `congctl` (String) Congestion control algorithm.
+- `cwnd` (Number) Congestion window.
+- `destination` (String) Destination prefix in CIDR notation, or 'default'.
+- `device` (String) Output interface name.
+- `encap` (Attributes) Route encapsulation. (see [below for nested schema](#nestedatt--routes--encap))
+- `family` (String) Address family (inet, inet6, mpls).
+- `fast_open_no_cookie` (Number) TCP Fast Open without cookie.
+- `features` (Number) Route feature flags.
+- `flags` (List of String) Route flags.
+- `gateway` (String) Gateway IP address.
+- `hoplimit` (Number) Hop limit (IPv6) / TTL (IPv4).
+- `ilink_index` (Number) Input interface index (iif).
+- `in_device` (String) Input interface name (iif).
+- `init_cwnd` (Number) Initial congestion window.
+- `init_rwnd` (Number) Initial receive window.
+- `link_index` (Number) Output interface index.
+- `mpls_dst` (Number) MPLS destination label.
+- `mtu` (Number) Route MTU metric.
+- `multipath` (Attributes List) Multipath nexthops (ECMP). (see [below for nested schema](#nestedatt--routes--multipath))
+- `new_dst` (String) New destination (MPLS swap).
+- `priority` (Number) Route metric/priority.
+- `protocol` (String) Route protocol (kernel, boot, static, ...).
+- `quick_ack` (Number) Quick ACK enable.
+- `realm` (Number) Routing realm.
+- `reordering` (Number) Maximum reordering.
+- `rto_min` (Number) Minimum retransmit timeout.
+- `rtt` (Number) Initial round-trip time.
+- `rtt_var` (Number) Initial round-trip time variance.
+- `scope` (String) Route scope (global, site, link, host, nowhere).
+- `source` (String) Preferred source address (prefsrc).
+- `ssthresh` (Number) Slow-start threshold.
+- `table` (Number) Routing table ID.
+- `tos` (Number) Type of service.
+- `type` (String) Route type (unicast, blackhole, ...).
+- `via` (String) Via address for cross-family nexthops.
+- `window` (Number) Advertised window.
+
+<a id="nestedatt--routes--encap"></a>
+### Nested Schema for `routes.encap`
+
+Read-Only:
+
+- `string` (String) String representation of the encapsulation.
+- `type` (String) Encapsulation type (mpls, ip, ip6, ila, bpf, seg6, seg6local, xfrm).
+
+
+<a id="nestedatt--routes--multipath"></a>
+### Nested Schema for `routes.multipath`
+
+Read-Only:
+
+- `device` (String) Output interface name.
+- `encap` (String) Encapsulation string representation.
+- `encap_type` (String) Encapsulation type.
+- `flags` (List of String) Nexthop flags.
+- `gateway` (String) Gateway IP address.
+- `hops` (Number) Hop count (weight is hops+1).
+- `link_index` (Number) Output interface index.
+- `new_dst` (String) New destination (MPLS swap).
+- `via` (String) Via address for cross-family nexthops.
+- `weight` (Number) Path weight (hops+1).

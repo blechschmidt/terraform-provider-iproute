@@ -1083,7 +1083,9 @@ output "addresses" {
 
 ### Data: iproute_route
 
-Read routing table entries.
+Read routing table entries. Each entry exposes the full set of netlink
+attributes for the route. Setting `get` performs a route lookup for a single
+destination IP, just like `ip route get`.
 
 ```hcl
 data "iproute_route" "all" {
@@ -1093,14 +1095,24 @@ data "iproute_route" "all" {
 data "iproute_route" "custom_table" {
   table = 100
 }
+
+# Equivalent to: ip route get 8.8.8.8
+data "iproute_route" "to_dns" {
+  get = "8.8.8.8"
+}
+
+output "dns_gateway" {
+  value = data.iproute_route.to_dns.routes[0].gateway
+}
 ```
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `family` | String | No | Address family (inet, inet6). |
-| `table` | Int64 | No | Routing table ID. |
+| `family` | String | No | Address family filter (inet, inet6). Ignored when `get` is set. |
+| `table` | Int64 | No | Routing table ID filter. Ignored when `get` is set. |
+| `get` | String | No | Resolve the route used to reach the given IP address (like `ip route get`). |
 | `id` | String | Computed | Resource identifier. |
-| `routes` | List(String) | Computed | List of routes. |
+| `routes` | List(Object) | Computed | Routes with full netlink attributes (destination, source, gateway, device, scope, protocol, family, table, type, priority, mtu, advmss, hoplimit, flags, encap, multipath, and more — see `docs/data-sources/route.md`). |
 
 ---
 
