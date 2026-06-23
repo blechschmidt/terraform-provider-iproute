@@ -270,6 +270,7 @@ Optional:
 - `ageing_time` (Number) MAC ageing time (centiseconds).
 - `default_pvid` (Number) Default PVID.
 - `forward_delay` (Number) STP forward delay (centiseconds).
+- `group_fwd_mask` (Number) Per-bridge group forwarding mask (IFLA_BR_GROUP_FWD_MASK). A bitmap of the 802.1D reserved link-local multicast addresses (01:80:c2:00:00:0X) the bridge forwards instead of dropping. For example 0x4000 (16384) forwards LLDP (01:80:c2:00:00:0e). STP (bit 0) and MAC pause (bit 1) are always filtered by the kernel.
 - `hello_time` (Number) STP hello time (centiseconds).
 - `max_age` (Number) STP max age (centiseconds).
 - `stp` (Boolean) Enable STP.

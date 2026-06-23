@@ -1,10 +1,48 @@
 package netlink
 
 import (
+	"fmt"
 	"net"
 
 	vnl "github.com/vishvananda/netlink"
+	"github.com/vishvananda/netlink/nl"
+	"golang.org/x/sys/unix"
 )
+
+// iflaBrGroupFwdMask is IFLA_BR_GROUP_FWD_MASK from <linux/if_link.h>.
+const iflaBrGroupFwdMask = 9
+
+// LinkSetBridgeGroupFwdMask sets a bridge's group_fwd_mask via a raw RTM_NEWLINK
+// netlink message (IFLA_BR_GROUP_FWD_MASK), which netlink v1.3.0 does not model
+// on its Bridge type. The request is executed from a thread switched into the
+// client's namespace so the netlink socket is opened there; this avoids sysfs,
+// whose per-namespace /sys view is unavailable for a foreign namespace. No
+// shell is involved.
+func (c *Client) LinkSetBridgeGroupFwdMask(name string, mask uint16) error {
+	link, err := c.Handle.LinkByName(name)
+	if err != nil {
+		return fmt.Errorf("looking up bridge %q: %w", name, err)
+	}
+	index := link.Attrs().Index
+
+	return c.RunInNamespace(func() error {
+		req := nl.NewNetlinkRequest(unix.RTM_NEWLINK, unix.NLM_F_ACK)
+		msg := nl.NewIfInfomsg(unix.AF_UNSPEC)
+		msg.Index = int32(index)
+		req.AddData(msg)
+
+		linkInfo := nl.NewRtAttr(unix.IFLA_LINKINFO, nil)
+		linkInfo.AddRtAttr(nl.IFLA_INFO_KIND, nl.NonZeroTerminated("bridge"))
+		data := linkInfo.AddRtAttr(nl.IFLA_INFO_DATA, nil)
+		data.AddRtAttr(iflaBrGroupFwdMask, nl.Uint16Attr(mask))
+		req.AddData(linkInfo)
+
+		if _, err := req.Execute(unix.NETLINK_ROUTE, 0); err != nil {
+			return fmt.Errorf("setting group_fwd_mask on %q: %w", name, err)
+		}
+		return nil
+	})
+}
 
 func (c *Client) LinkAdd(link vnl.Link) error {
 	// TUN/TAP devices are created via /dev/net/tun ioctl, not netlink messages.

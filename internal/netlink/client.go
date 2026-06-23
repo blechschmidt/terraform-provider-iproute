@@ -25,7 +25,7 @@ func NewClient(namespace string) (*Client, error) {
 	}
 
 	if namespace != "" {
-		nsHandle, err := netns.GetFromName(namespace)
+		nsHandle, err := ResolveNamespace(namespace)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get namespace %q: %w", namespace, err)
 		}

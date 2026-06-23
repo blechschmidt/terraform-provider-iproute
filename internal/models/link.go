@@ -47,6 +47,7 @@ type BridgeConfig struct {
 	VlanFiltering types.Bool `tfsdk:"vlan_filtering"`
 	DefaultPVID  types.Int64 `tfsdk:"default_pvid"`
 	AgeingTime   types.Int64 `tfsdk:"ageing_time"`
+	GroupFwdMask types.Int64 `tfsdk:"group_fwd_mask"`
 }
 
 type VethConfig struct {

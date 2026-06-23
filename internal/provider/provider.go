@@ -44,8 +44,12 @@ func (p *IprouteProvider) Schema(_ context.Context, _ provider.SchemaRequest, re
 			"rules, neighbors, and more.",
 		Attributes: map[string]schema.Attribute{
 			"namespace": schema.StringAttribute{
-				Description: "Network namespace to operate in. If not set, operates in the default namespace.",
-				Optional:    true,
+				Description: "Network namespace to operate in. If not set, operates in the default namespace. " +
+					"Accepts several forms: a bare name or \"name:<name>\" for a named namespace under " +
+					"/run/netns, \"pid:<pid>\" for the namespace of a process, \"path:<path>\" for an nsfs " +
+					"path (e.g. /proc/<pid>/ns/net or a bind mount), or \"docker:<id|name>\" to target a " +
+					"running Docker container's namespace resolved via the Docker API.",
+				Optional: true,
 			},
 		},
 	}
@@ -80,6 +84,7 @@ func (p *IprouteProvider) Configure(ctx context.Context, req provider.ConfigureR
 func (p *IprouteProvider) Resources(_ context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
 		NewLinkResource,
+		NewLinkAttachmentResource,
 		NewAddressResource,
 		NewRouteResource,
 		NewRuleResource,

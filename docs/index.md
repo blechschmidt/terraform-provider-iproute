@@ -15,10 +15,16 @@ The iproute provider manages Linux networking resources using netlink. It suppor
 # Default namespace
 provider "iproute" {}
 
-# Specific network namespace
+# Named network namespace (under /run/netns)
 provider "iproute" {
   alias     = "isolated"
   namespace = "my-namespace"
+}
+
+# A running Docker container's network namespace
+provider "iproute" {
+  alias     = "container"
+  namespace = "docker:${docker_container.gateway.id}"
 }
 ```
 
@@ -27,4 +33,4 @@ provider "iproute" {
 
 ### Optional
 
-- `namespace` (String) Network namespace to operate in. If not set, operates in the default namespace.
+- `namespace` (String) Network namespace to operate in. If not set, operates in the default namespace. Accepts several forms: a bare name or `name:<name>` for a named namespace under /run/netns, `pid:<pid>` for the namespace of a process, `path:<path>` for an nsfs path (e.g. /proc/<pid>/ns/net or a bind mount), or `docker:<id|name>` to target a running Docker container's namespace resolved via the Docker API.

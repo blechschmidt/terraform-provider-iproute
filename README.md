@@ -46,13 +46,26 @@ provider "iproute" {
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `namespace` | String | No | Network namespace to operate in. If not set, operates in the default namespace. |
+| `namespace` | String | No | Network namespace to operate in. If not set, operates in the default namespace. See [namespace forms](#namespace-forms) for the accepted syntax. |
+
+#### Namespace forms
+
+The `namespace` argument (and the `netns` argument of `iproute_link_attachment`) accepts several forms:
+
+| Form | Example | Meaning |
+|------|---------|---------|
+| _bare name_ | `my-namespace` | A named namespace under `/run/netns` (as created by `ip netns add`). |
+| `name:<name>` | `name:my-namespace` | The same, stated explicitly. |
+| `pid:<pid>` | `pid:12345` | The network namespace of the given process. |
+| `path:<path>` | `path:/proc/12345/ns/net` | An nsfs path — a `/proc/<pid>/ns/net` entry or a bind mount. |
+| `docker:<id\|name>` | `docker:${docker_container.gateway.id}` | The network namespace of a running Docker container, resolved through the Docker Engine API (honours `DOCKER_HOST` when it names a unix socket). The container must already be running when the provider is configured. |
 
 ## Resources
 
 | Resource | Description |
 |----------|-------------|
 | [iproute_link](#iproute_link) | Network links/interfaces (`ip link`) |
+| [iproute_link_attachment](#iproute_link_attachment) | Attach an existing interface to a namespace/bridge (`ip link set ... netns/master/up`) |
 | [iproute_address](#iproute_address) | IP addresses (`ip address`) |
 | [iproute_route](#iproute_route) | Routing table entries (`ip route`) |
 | [iproute_rule](#iproute_rule) | Routing policy rules (`ip rule`) |
@@ -174,6 +187,7 @@ Each link type has a corresponding configuration block. Only the block matching 
 | `vlan_filtering` | Boolean | Enable VLAN filtering |
 | `default_pvid` | Int64 | Default PVID |
 | `ageing_time` | Int64 | MAC ageing time (centiseconds) |
+| `group_fwd_mask` | Int64 | Per-bridge group forwarding mask (`IFLA_BR_GROUP_FWD_MASK`). Bitmap of the 802.1D reserved link-local multicast addresses (`01:80:c2:00:00:0X`) the bridge forwards instead of dropping; e.g. `0x4000` (16384) forwards LLDP. STP and MAC-pause are always filtered by the kernel. |
 </details>
 
 <details>
@@ -365,6 +379,50 @@ resource "iproute_link" "dummy" {
 
 ```sh
 terraform import iproute_link.example <interface-name>
+```
+
+---
+
+### iproute_link_attachment
+
+Attaches a **pre-existing** network interface to a namespace and/or bridge without creating it. It moves the interface into the target network namespace (optional), enslaves it to a master bridge (optional) and brings it up. On destroy it reverses the placement: the interface is detached from its master, brought down, and returned to the provider's namespace.
+
+This is the declarative replacement for the imperative `ip link set <dev> netns <ns> master <br> up` sequence — for example bridging a physical host NIC or a Docker-managed veth into a bridge. Unlike `iproute_link`, it never creates or destroys the interface itself.
+
+#### Example
+
+```hcl
+# Bridge an existing physical NIC into a bridge.
+resource "iproute_link_attachment" "uplink" {
+  name   = "eth1"
+  master = iproute_link.br0.name
+  up     = true
+}
+
+# Move a container's veth into the container's namespace and enslave it
+# to a bridge that already exists there.
+resource "iproute_link_attachment" "container_port" {
+  name   = "veth-app"
+  netns  = "docker:${docker_container.app.id}"
+  master = "br0"
+  up     = true
+}
+```
+
+#### Attributes
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `name` | String | Yes | Name of the existing interface to attach. Changing it forces replacement. |
+| `netns` | String | No | Target network namespace to move the interface into, using the same [namespace forms](#namespace-forms) as the provider. When unset, the interface stays in the provider's namespace. Changing it forces replacement. |
+| `master` | String | No | Master bridge to enslave the interface to (resolved in the target namespace). |
+| `up` | Boolean | No | Administrative state. Defaults to `true`. |
+| `id` | String | — | (Computed) Resource ID; equals `name`. |
+
+#### Import
+
+```sh
+terraform import iproute_link_attachment.example <interface-name>
 ```
 
 ---

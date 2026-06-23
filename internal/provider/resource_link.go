@@ -241,6 +241,14 @@ func (r *LinkResource) Create(ctx context.Context, req resource.CreateRequest, r
 		}
 	}
 
+	// Bridge group_fwd_mask (e.g. to forward LLDP across the bridge).
+	if v, ok := bridgeGroupFwdMask(&data); ok {
+		if err := r.client.LinkSetBridgeGroupFwdMask(data.Name.ValueString(), v); err != nil {
+			resp.Diagnostics.AddError("Failed to set bridge group_fwd_mask", err.Error())
+			return
+		}
+	}
+
 	// Read back the link state
 	r.readLinkInto(&data)
 	if resp.Diagnostics.HasError() {
@@ -365,6 +373,22 @@ func (r *LinkResource) Update(ctx context.Context, req resource.UpdateRequest, r
 				resp.Diagnostics.AddError("Failed to bring link down", err.Error())
 				return
 			}
+		}
+	}
+
+	// Update bridge group_fwd_mask.
+	newMask, newOK := bridgeGroupFwdMask(&data)
+	oldMask, oldOK := bridgeGroupFwdMask(&state)
+	if newOK && (!oldOK || newMask != oldMask) {
+		if err := r.client.LinkSetBridgeGroupFwdMask(data.Name.ValueString(), newMask); err != nil {
+			resp.Diagnostics.AddError("Failed to set bridge group_fwd_mask", err.Error())
+			return
+		}
+	} else if !newOK && oldOK {
+		// Cleared in config: reset to the kernel default (forward nothing).
+		if err := r.client.LinkSetBridgeGroupFwdMask(data.Name.ValueString(), 0); err != nil {
+			resp.Diagnostics.AddError("Failed to reset bridge group_fwd_mask", err.Error())
+			return
 		}
 	}
 
